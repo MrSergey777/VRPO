@@ -1,30 +1,29 @@
 #include <SFML/Graphics.hpp>
-#include <cstdlib>
-#include <ctime>
-
+#include <SFML/Audio.hpp>
 using namespace sf;
 
-// Функция открытия соседних ячеек
 void openCells(int x, int y, int gridLogic[12][12], int gridView[12][12]) {
     if (x < 1 || x > 10 || y < 1 || y > 10) return; // Вне границ
-    if (gridView[x][y] != 10) return;              // Уже открыто или помечено
-    gridView[x][y] = gridLogic[x][y];              // Открываем ячейку
+    if (gridView[x][y] != 10) return; // Уже открыто или помечено
+    gridView[x][y] = gridLogic[x][y];
 
-    if (gridLogic[x][y] == 0) { // Если пустая клетка
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                if (dx != 0 || dy != 0) { // Исключаем саму клетку
-                    openCells(x + dx, y + dy, gridLogic, gridView);
-                }
-            }
-        }
+    if (gridLogic[x][y] == 0) {
+        openCells(x + 1, y, gridLogic, gridView);
+        openCells(x - 1, y, gridLogic, gridView);
+        openCells(x, y + 1, gridLogic, gridView);
+        openCells(x, y - 1, gridLogic, gridView);
+        openCells(x + 1, y + 1, gridLogic, gridView);
+        openCells(x - 1, y - 1, gridLogic, gridView);
+        openCells(x + 1, y - 1, gridLogic, gridView);
+        openCells(x - 1, y + 1, gridLogic, gridView);
     }
 }
 
-// Функция обработки двойного клика
 void doubleClickOpen(int x, int y, int gridLogic[12][12], int gridView[12][12]) {
     int flagCount = 0;
-
+    if (gridLogic[x][y] == 0) {
+        openCells(x, y, gridLogic, gridView);
+    }
     // Подсчет количества флажков вокруг ячейки
     for (int dx = -1; dx <= 1; dx++) {
         for (int dy = -1; dy <= 1; dy++) {
@@ -36,75 +35,70 @@ void doubleClickOpen(int x, int y, int gridLogic[12][12], int gridView[12][12]) 
         }
     }
 
-    // Если количество флажков совпадает с числом в ячейке, открываем соседние клетки
+    // Если количество флажков совпадает с числом в ячейке, открываем все соседние клетки
     if (flagCount == gridLogic[x][y]) {
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
                 int nx = x + dx;
                 int ny = y + dy;
-                if (nx >= 1 && nx <= 10 && ny >= 1 && ny <= 10 && gridView[nx][ny] == 10) {
-                    openCells(nx, ny, gridLogic, gridView);
+                if (nx >= 1 && nx <= 10 && ny >= 1 && ny <= 10 && gridView[nx][ny] == 10 && gridLogic[nx][ny] != 9) {
+                    gridView[nx][ny] = gridLogic[nx][ny];
+                    if (gridLogic[nx][ny] == 0) {
+                        openCells(nx, ny, gridLogic, gridView);
+                    }
                 }
             }
         }
     }
 }
 
-// Функция проверки победы
-bool congratulations(int gridLogic[12][12], int gridView[12][12]) {
+bool checkWin(int gridLogic[12][12], int gridView[12][12]) {
     for (int i = 1; i <= 10; i++) {
         for (int j = 1; j <= 10; j++) {
-            if (gridLogic[i][j] == 9) { // Если мина
-                if (gridView[i][j] != 11) return false; // Мина должна быть помечена
-            } else {
-                if (gridView[i][j] != gridLogic[i][j]) return false; // Остальные клетки должны быть открыты
+            if (gridLogic[i][j] != 9 && gridView[i][j] == 10) {
+                return false;
             }
         }
     }
-    return true; // Все условия выполнены, игрок выиграл
+    return true;
 }
 
 int main() {
     RenderWindow app(VideoMode(400, 400), "Minesweeper!");
     srand(time(0));
-
-    int w = 32; // Размер клетки
-    int gridLogic[12][12]; // Логическое поле (где мины и числа)
-    int gridView[12][12];  // Видимое поле
-
+    int w = 32;
+    int gridLogic[12][12];
+    int gridView[12][12];
     Texture t;
     t.loadFromFile("C:\\Users\\ASUS\\Desktop\\Дитя С++\\saper.jpg");
     Sprite s(t);
+    int numberofclick = 0;
+    bool first_click = false;
+    bool double_click = false;
+    Clock clock;
 
-    // Инициализация полей
-    for (int i = 1; i <= 10; i++) {
+    for (int i = 1; i <= 10; i++)
         for (int j = 1; j <= 10; j++) {
-            gridView[i][j] = 10; // Все клетки закрыты
-            if (rand() % 5 == 0) gridLogic[i][j] = 9; // Мина
-            else gridLogic[i][j] = 0; // Пустая клетка
+            gridView[i][j] = 10;
+            if (i == 5 && j == 5) continue;
+            if (rand() % 5 == 0) gridLogic[i][j] = 9;
+            else gridLogic[i][j] = 0;
         }
-    }
 
-    // Подсчет чисел вокруг мин
-    for (int i = 1; i <= 10; i++) {
+    for (int i = 1; i <= 10; i++)
         for (int j = 1; j <= 10; j++) {
-            if (gridLogic[i][j] == 9) continue;
             int n = 0;
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dy = -1; dy <= 1; dy++) {
-                    int nx = i + dx;
-                    int ny = j + dy;
-                    if (nx >= 1 && nx <= 10 && ny >= 1 && ny <= 10 && gridLogic[nx][ny] == 9) {
-                        n++;
-                    }
-                }
-            }
+            if (gridLogic[i][j] == 9) continue;
+            if (i + 1 <= 10 && gridLogic[i + 1][j] == 9) n++;
+            if (j + 1 <= 10 && gridLogic[i][j + 1] == 9) n++;
+            if (i - 1 >= 1 && gridLogic[i - 1][j] == 9) n++;
+            if (j - 1 >= 1 && gridLogic[i][j - 1] == 9) n++;
+            if (i + 1 <= 10 && j + 1 <= 10 && gridLogic[i + 1][j + 1] == 9) n++;
+            if (i - 1 >= 1 && j - 1 >= 1 && gridLogic[i - 1][j - 1] == 9) n++;
+            if (i - 1 >= 1 && j + 1 <= 10 && gridLogic[i - 1][j + 1] == 9) n++;
+            if (i + 1 <= 10 && j - 1 >= 1 && gridLogic[i + 1][j - 1] == 9) n++;
             gridLogic[i][j] = n;
         }
-    }
-
-    bool first_click = false;
-    Clock clock;
 
     while (app.isOpen()) {
         Event e;
@@ -117,47 +111,78 @@ int main() {
                 app.close();
 
             if (e.type == Event::MouseButtonPressed) {
-                if (!first_click) { // Обработка первого клика
-                    if (gridLogic[x][y] == 9) { // Если на первом клике мина, перемещаем её
-                        gridLogic[x][y] = 0;
-                        for (int i = 1; i <= 10; i++) {
-                            for (int j = 1; j <= 10; j++) {
-                                if (gridLogic[i][j] != 9) {
-                                    gridLogic[i][j] = 9;
-                                    break;
+                if (first_click == false) {
+                    // Открываем область вокруг первого нажатия
+                    for (int dx = -1; dx <= 1; dx++) {
+                        for (int dy = -1; dy <= 1; dy++) {
+                            int nx = x + dx;
+                            int ny = y + dy;
+                            if (nx >= 1 && nx <= 10 && ny >= 1 && ny <= 10 && gridLogic[nx][ny] != 9) {
+                                gridView[nx][ny] = gridLogic[nx][ny];
+                                if (gridLogic[nx][ny] == 0) {
+                                    openCells(nx, ny, gridLogic, gridView);
                                 }
                             }
                         }
                     }
-                    openCells(x, y, gridLogic, gridView);
                     first_click = true;
                 }
-
                 if (e.mouseButton.button == Mouse::Left) {
-                    gridView[x][y] = gridLogic[x][y];
-                    if (gridLogic[x][y] == 9) app.close(); // Клик по мине
-                    else if (gridLogic[x][y] == 0) openCells(x, y, gridLogic, gridView); // Клик по пустой клетке
-                } else if (e.mouseButton.button == Mouse::Right) { // Флажки
+                    if (clock.getElapsedTime().asMilliseconds() < 300) {
+                        double_click = true;
+                    }
+                    else {
+                        double_click = false;
+                    }
+                    clock.restart();
+
+                    if (double_click) {
+                        if (gridView[x][y] > 0 && gridView[x][y] < 9) {
+                            doubleClickOpen(x, y, gridLogic, gridView);
+                        }
+                    }
+                    else {
+                        gridView[x][y] = gridLogic[x][y];
+                        if (gridView[x][y] == 9) app.close();
+                    }
+                }
+                else if (e.mouseButton.button == Mouse::Right) {
                     if (gridView[x][y] == 10) gridView[x][y] = 11;
                     else if (gridView[x][y] == 11) gridView[x][y] = 10;
                 }
 
-                // Проверка победы
-                if (congratulations(gridLogic, gridView)) {
+                // Проверка на победу
+                if (checkWin(gridLogic, gridView)) {
                     app.close();
+                    RenderWindow winApp(VideoMode(400, 200), "Congratulations!");
+                    while (winApp.isOpen()) {
+                        Event winEvent;
+                        while (winApp.pollEvent(winEvent)) {
+                            if (winEvent.type == Event::Closed)
+                                winApp.close();
+                        }
+                        winApp.clear(Color::White);
+                        Font font;
+                        font.loadFromFile("C:\\Windows\\Fonts\\arial.ttf");
+                        Text text("Congratulations! ", font, 50);
+                        text.setFillColor(Color::Red);
+                        text.setPosition(50, 75);
+                        winApp.draw(text);
+                        winApp.display();
+                    }
                 }
             }
         }
 
-        // Отображение игры
         app.clear(Color::White);
-        for (int i = 1; i <= 10; i++) {
+
+        for (int i = 1; i <= 10; i++)
             for (int j = 1; j <= 10; j++) {
                 s.setTextureRect(IntRect(gridView[i][j] * w, 0, w, w));
                 s.setPosition(i * w, j * w);
                 app.draw(s);
             }
-        }
+
         app.display();
     }
 
