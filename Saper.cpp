@@ -41,7 +41,7 @@ void doubleClickOpen(int x, int y, int gridLogic[12][12], int gridView[12][12]) 
             for (int dy = -1; dy <= 1; dy++) {
                 int nx = x + dx;
                 int ny = y + dy;
-                if (nx >= 1 && nx <= 10 && ny >= 1 && ny <= 10 && gridView[nx][ny] == 10) {
+                if (nx >= 1 && nx <= 10 && ny >= 1 && ny <= 10 && gridView[nx][ny] == 10 && gridLogic[nx][ny] != 9) {
                     gridView[nx][ny] = gridLogic[nx][ny];
                     if (gridLogic[nx][ny] == 0) {
                         openCells(nx, ny, gridLogic, gridView);
