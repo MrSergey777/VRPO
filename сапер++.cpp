@@ -1,5 +1,4 @@
 #include <SFML/Graphics.hpp>
-#include <SFML/Audio.hpp>
 #include <cstdlib>
 #include <ctime>
 
@@ -9,12 +8,14 @@ using namespace sf;
 void openCells(int x, int y, int gridLogic[12][12], int gridView[12][12]) {
     if (x < 1 || x > 10 || y < 1 || y > 10) return; // Вне границ
     if (gridView[x][y] != 10) return;              // Уже открыто или помечено
-    gridView[x][y] = gridLogic[x][y];
+    gridView[x][y] = gridLogic[x][y];              // Открываем ячейку
 
-    if (gridLogic[x][y] == 0) {
+    if (gridLogic[x][y] == 0) { // Если пустая клетка
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
-                openCells(x + dx, y + dy, gridLogic, gridView);
+                if (dx != 0 || dy != 0) { // Исключаем саму клетку
+                    openCells(x + dx, y + dy, gridLogic, gridView);
+                }
             }
         }
     }
@@ -41,11 +42,8 @@ void doubleClickOpen(int x, int y, int gridLogic[12][12], int gridView[12][12]) 
             for (int dy = -1; dy <= 1; dy++) {
                 int nx = x + dx;
                 int ny = y + dy;
-                if (nx >= 1 && nx <= 10 && ny >= 1 && ny <= 10 && gridView[nx][ny] == 10 && gridLogic[nx][ny] != 9) {
-                    gridView[nx][ny] = gridLogic[nx][ny];
-                    if (gridLogic[nx][ny] == 0) {
-                        openCells(nx, ny, gridLogic, gridView);
-                    }
+                if (nx >= 1 && nx <= 10 && ny >= 1 && ny <= 10 && gridView[nx][ny] == 10) {
+                    openCells(nx, ny, gridLogic, gridView);
                 }
             }
         }
@@ -56,42 +54,34 @@ void doubleClickOpen(int x, int y, int gridLogic[12][12], int gridView[12][12]) 
 bool congratulations(int gridLogic[12][12], int gridView[12][12]) {
     for (int i = 1; i <= 10; i++) {
         for (int j = 1; j <= 10; j++) {
-            // Если клетка логически является миной
-            if (gridLogic[i][j] == 9) {
-                // Она должна быть закрыта (10) или помечена флажком (11)
-                if (gridView[i][j] != 10 && gridView[i][j] != 11) {
-                    return false;
-                }
-            } 
-            // Если клетка не является миной, она должна быть открыта
-            else {
-                if (gridView[i][j] != gridLogic[i][j]) {
-                    return false;
-                }
+            if (gridLogic[i][j] == 9) { // Если мина
+                if (gridView[i][j] != 11) return false; // Мина должна быть помечена
+            } else {
+                if (gridView[i][j] != gridLogic[i][j]) return false; // Остальные клетки должны быть открыты
             }
         }
     }
-    return true; // Если все условия выполнены, игрок выиграл
+    return true; // Все условия выполнены, игрок выиграл
 }
 
 int main() {
     RenderWindow app(VideoMode(400, 400), "Minesweeper!");
     srand(time(0));
 
-    int w = 32;
-    int gridLogic[12][12];
-    int gridView[12][12];
+    int w = 32; // Размер клетки
+    int gridLogic[12][12]; // Логическое поле (где мины и числа)
+    int gridView[12][12];  // Видимое поле
 
     Texture t;
     t.loadFromFile("C:\\Users\\ASUS\\Desktop\\Дитя С++\\saper.jpg");
     Sprite s(t);
 
-    // Инициализация сеток
+    // Инициализация полей
     for (int i = 1; i <= 10; i++) {
         for (int j = 1; j <= 10; j++) {
-            gridView[i][j] = 10;
+            gridView[i][j] = 10; // Все клетки закрыты
             if (rand() % 5 == 0) gridLogic[i][j] = 9; // Мина
-            else gridLogic[i][j] = 0;                // Пустая ячейка
+            else gridLogic[i][j] = 0; // Пустая клетка
         }
     }
 
@@ -114,7 +104,6 @@ int main() {
     }
 
     bool first_click = false;
-    bool double_click = false;
     Clock clock;
 
     while (app.isOpen()) {
@@ -128,28 +117,27 @@ int main() {
                 app.close();
 
             if (e.type == Event::MouseButtonPressed) {
-                if (!first_click) {
+                if (!first_click) { // Обработка первого клика
+                    if (gridLogic[x][y] == 9) { // Если на первом клике мина, перемещаем её
+                        gridLogic[x][y] = 0;
+                        for (int i = 1; i <= 10; i++) {
+                            for (int j = 1; j <= 10; j++) {
+                                if (gridLogic[i][j] != 9) {
+                                    gridLogic[i][j] = 9;
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     openCells(x, y, gridLogic, gridView);
                     first_click = true;
                 }
 
                 if (e.mouseButton.button == Mouse::Left) {
-                    if (clock.getElapsedTime().asMilliseconds() < 300) {
-                        double_click = true;
-                    } else {
-                        double_click = false;
-                    }
-                    clock.restart();
-
-                    if (double_click) {
-                        if (gridView[x][y] > 0 && gridView[x][y] < 9) {
-                            doubleClickOpen(x, y, gridLogic, gridView);
-                        }
-                    } else {
-                        gridView[x][y] = gridLogic[x][y];
-                        if (gridView[x][y] == 9) app.close(); // Мина
-                    }
-                } else if (e.mouseButton.button == Mouse::Right) {
+                    gridView[x][y] = gridLogic[x][y];
+                    if (gridLogic[x][y] == 9) app.close(); // Клик по мине
+                    else if (gridLogic[x][y] == 0) openCells(x, y, gridLogic, gridView); // Клик по пустой клетке
+                } else if (e.mouseButton.button == Mouse::Right) { // Флажки
                     if (gridView[x][y] == 10) gridView[x][y] = 11;
                     else if (gridView[x][y] == 11) gridView[x][y] = 10;
                 }
